@@ -1,3 +1,4 @@
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
@@ -6,19 +7,26 @@ import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
 
+    private val speechRequestCode = 1001
     private lateinit var voiceHelper: VoiceHelper
     private lateinit var commandRouter: CommandRouter
+    private lateinit var speechInputHelper: SpeechInputHelper
+    private lateinit var inputBox: EditText
+    private lateinit var resultText: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val inputBox = EditText(this).apply {
-            hint = "कमांड लिखो (जैसे: खोलो youtube, फ्लैशलाइट ऑन, अलार्म)"
+        inputBox = EditText(this).apply {
+            hint = "कमांड लिखो या माइक दबाओ"
         }
         val runButton = Button(this).apply {
             text = "चलाओ"
         }
-        val resultText = TextView(this).apply {
+        val micButton = Button(this).apply {
+            text = "माइक से बोलो"
+        }
+        resultText = TextView(this).apply {
             text = "हां जी बॉस, तैयार हूँ।"
             textSize = 18f
             setPadding(24, 24, 24, 24)
@@ -29,6 +37,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(32, 64, 32, 32)
             addView(inputBox)
             addView(runButton)
+            addView(micButton)
             addView(resultText)
         }
         setContentView(layout)
@@ -37,11 +46,28 @@ class MainActivity : AppCompatActivity() {
             voiceHelper.speak("हां जी बॉस, तैयार हूँ।")
         }
         commandRouter = CommandRouter(this, voiceHelper)
+        speechInputHelper = SpeechInputHelper(this)
 
         runButton.setOnClickListener {
             val cmd = inputBox.text.toString()
             if (cmd.isNotBlank()) {
                 val reply = commandRouter.processCommand(cmd)
+                resultText.text = reply
+            }
+        }
+
+        micButton.setOnClickListener {
+            speechInputHelper.startListening(speechRequestCode)
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == speechRequestCode && resultCode == RESULT_OK) {
+            val spoken = speechInputHelper.extractSpokenText(data)
+            if (!spoken.isNullOrBlank()) {
+                inputBox.setText(spoken)
+                val reply = commandRouter.processCommand(spoken)
                 resultText.text = reply
             }
         }
